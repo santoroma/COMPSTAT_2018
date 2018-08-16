@@ -1,0 +1,237 @@
+---
+title: "CircSpaceTime: An R package for spatial, spatio-temporal and temporal model for circular, cylindrical and spherical data"
+author: |
+  |
+  | <a href="https://github.com/santoroma/CircSpaceTime">github.com/santoroma/CircSpaceTime</a></small>
+  | <small>23rd International Conference on Computational Statistics</small>
+output:
+  revealjs::revealjs_presentation:
+    template: COMPSTAT_2018_Template.html
+    incremental: false
+    self_contained: false
+    reveal_plugins: ["notes", "zoom", "menu"]
+    theme: league
+    transition: zoom
+    background_transition: zoom
+    highlight: pygments
+    center: true
+    progress: true
+    slideNumber: true
+    menu:
+        numbers: true
+    defaultTiming: 120
+---
+
+## A brand new package {data-background="img/storm1.gif"}
+
+
+- Currently the following models are implemented:  
+  
+    + Spatial Wrapped Normal
+    + Spatial Projected Normal
+<br>
+- Yet to come (in few weeks):  
+
+    + Spatio-Temporal Wrapped Normal
+    + Spatio-Temporal Projected Normal  
+<br>
+
+
+## A brand new package {data-background="img/inception_end.gif"}
+
+- Already available on GitHub at <a href="https://github.com/santoroma/CircSpaceTime">github.com/santoroma/CircSpaceTime</a>  
+The package will be released on CRAN before the end of the 2018.
+<br>
+
+- It will be constantly updated with Bayesian and classical models dealing with complex dependence structures for circular, cylindrical and spherical variable. 
+<br>  
+   
+
+
+# A brief example  {data-background="img/map1.png"}
+
+
+##   {data-background="img/map1.png"}  
+
+
+
+- <span style="background-color:black"> Example based on wave directions (and heights): a storm event observed at 8pm of April 6, 2010.</span> 
+<br>    
+<br>
+
+- <span style="background-color:black"> Data available inside the package.</span>
+<br>
+
+##  Test data {data-background="img/plot2.png" data-background-size="100%" data-background-position="bottom"}  
+
+ We hold out 10% of the locations for validation purposes 
+<br>    
+<br><br>
+<br><br><br>
+<br>    
+<br><br>
+<br><br><br>
+<br><br><br>
+
+
+# Estimation based on the Wrapped Gaussian
+
+
+##  WrapSp   
+  
+<small>  
+
+- **WrapSp** function produces samples from the Wrapped Normal spatial model posterior distribution  
+- As inputs it requires:  
+
+    + a vector of $n$ circular data in $[0,2\pi)$ and a matrix of coordinates   (*train data* in our example)
+    + two lists, one of starting values for the MCMC and the other for the prior distributions definition.
+    + Further inputs are related to computational options such as the number of chains, if the computation should be parallelized and the number of iterations.  
+
+
+```{r wrapsp, warning = FALSE, echo=TRUE, eval=FALSE, size="tiny"}
+ storm <- WrapSp(
+ x     = train0$Dmr,
+ coords    = coords0.train,
+ start   = start0 ,
+ prior   = list("alpha"      = c(pi,10), 
+ "rho"     = c(rho_min0, rho_max0), 
+ "sigma2"    = c(3,0.5),
+ "beta"      = c(1,1,2)  
+ ) ,
+ nugget = TRUE,
+ sd_prop   = list( "sigma2" = 1, "rho" = 0.3, "beta" = 1),
+ iter    = 30000,
+  bigSim    = c(burnin = 15000, thin = 10),
+ accept_ratio = 0.5,
+ adapt_param = c(start = 1000, end = 10000, esponente = 0.95),
+ corr_fun = "exponential", 
+ n_chains = 2,
+ parallel = T,
+ n_cores = 2)
+```
+</small>
+
+##  WrapKrig  
+  
+<small>  
+
+- **WrapKrig** function estimate the values on the test sites using the posterior samples we just obtained 
+- As inputs it requires:  
+
+    + the output of *WrapSp*   
+    + the coordinates for the train (observed) points
+    + the coordinates of the test (validation) points
+    + the observed (train) circular values
+
+</small>
+```{r wrapkrig, warning = FALSE, echo=TRUE, eval=FALSE}
+ Pred.storm <- WrapKrig(
+   WrapSp_out = storm,
+## The coordinates for the observed points
+  coords_obs = coords0.train,
+## The coordinates of the validation points
+  coords_nobs = coords0.test,
+##the observed circular values
+   x_oss = train0$Dmr
+ )
+```
+
+# Estimation based on the Projected Gaussian
+
+
+##  ProjSp   
+  
+<small>  
+
+- **ProjSp** function produces samples from the Projected Normal spatial model posterior distribution  
+- As inputs it requires:  
+
+    + a vector of $n$ circular data in $[0,2\pi)$ and a matrix of coordinates   (*train data* in our example)
+    + two lists, one of starting values for the MCMC and the other for the prior distributions definition.
+    + Further inputs are related to computational options such as the number of chains, if the computation should be parallelized and the number of iterations.  
+
+
+```{r projsp, warning = FALSE, echo=TRUE, eval=FALSE, size="tiny"}
+ mod0_PN <- ProjSp(
+  x     = train0$Dmr,
+  coords    = coords0.train,
+  start   = start0_PN ,
+  prior   = list("alpha_mu"      = c(0,0),
+                 "alpha_sigma"   = diag(10,2),
+                 "rho0"     = c(rho_min0, rho_max0),
+                 "rho"      = c(-1,1),
+                 "sigma2"    = c(3,0.5)),
+  sd_prop   = list( "sigma2" = .1, "rho0" = 0.1, "rho" = .1,  "sdr" = sample(.05,length(train0$Dmr), replace = T)),
+  iter    = 5000,
+  bigSim    = c(burnin = 3500, thin = 1),
+  accept_ratio = 0.5,
+  adapt_param = c(start = 1000, end = 10000, esponente = 0.95, sdr_update_iter = 50),
+  corr_fun = "exponential", 
+  n_chains = 2,
+  parallel = T,
+  n_cores = 2)
+```
+</small>
+
+##  ProjKrig  
+  
+<small>  
+
+- **ProjKrig** function estimate the values on the test sites using the posterior samples we just obtained 
+- As inputs it requires:  
+
+    + the output of *ProjSp*   
+    + the coordinates for the train (observed) points
+    + the coordinates of the test (validation) points
+    + the observed (train) circular values
+
+</small>
+```{r projkrig, warning = FALSE, echo=TRUE, eval=FALSE}
+ Pred.krig_PN <- ProjKrig(mod0_PN,
+                      ## The coordinates for the observed points  
+                      coords_obs = coords0.train,
+                      ## The coordinates of the validation points
+                      coords_nobs = coords0.test,
+                      ##the observed circular values
+                      x_oss = train0$Dmr)
+```
+
+
+## Comparison
+
+- We can compare the predictions of the two models using the Average Prediction Error (APE)
+<br>
+- It's the package function **APEcirc**
+<br>
+<br>
+<br>
+```{r print_APE_comparison, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- " 
+|                           | Wrapped | Projected |
+|---------------------------|:-------:|----------:|
+| Average Prediction Error  | 0.0007  | 0.0010    |
+"
+cat(tabl) 
+```
+
+
+```{r ape, warning = FALSE, echo=TRUE, eval=FALSE, size="tiny"}
+ APE_WRAP <- APEcirc( real = test0$Dmr,
+                sim = Pred.storm$Prev_out,
+                bycol = F
+)
+  APE_PN <- APEcirc( real = test0$Dmr,
+                sim = Pred.krig_PN$Prev_out,
+                bycol = F
+)
+```
+
+
+# ... this is the END {data-background="img/truman_show_end.gif"}
+
+## THANKS!!! {data-background="img/truman_show_end.gif"}
+
+Further information and installation instructions on
+<font size="+14">[github.com/santoroma/CircSpaceTime](https://github.com/santoroma/CircSpaceTime)</font>
+
